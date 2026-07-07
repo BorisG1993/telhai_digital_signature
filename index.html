@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="signature_styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad"></script>
+    <style>
+        signature-field {
+            display: block;
+            margin-bottom: 0.8rem;
+        }
+        
+        button {
+            cursor: pointer;
+            transition: background-color 0.1s ease, transform 0.05s ease;
+        }
+
+        button:active {
+            filter: brightness(0.85) contrast(1.1);
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img id="logo" src="" alt="Logo" style="max-width: 250px; display: none; margin: 0 auto 1rem auto;">
+
+        <h1 id="title"></h1>
+        
+        <div class="description-section">
+            <div class="asset-details" style="display: flex; flex-direction: column; margin-bottom: 1.5rem; font-size: 0.95rem; color: #555;">
+                <signature-field id="displayAsset" name="asset" label="נכס:"></signature-field>
+                <signature-field id="displayManufacturer" name="manufacturer" label="יצרן:"></signature-field>
+                <signature-field id="displayModel" name="model" label="דגם:"></signature-field>
+                <signature-field id="displayBarcode" name="barcode" label="ברקוד:"></signature-field>
+                <signature-field id="displaySerialAlt" name="serialAlt" label="מספר סידורי:"></signature-field>
+            </div>
+
+            <p id="description"></p>
+        </div>
+      
+        <div class="person-details" style="display: flex; flex-direction: column; margin-bottom: 1.5rem; font-size: 0.95rem; color: #555;">
+            <signature-field id="displayCurrentUser" name="currentUser" label="פרטי המוסר:"></signature-field>
+            <signature-field id="displayDestOwner" name="destOwner" label="פרטי המקבל:"></signature-field>
+            <signature-field id="displayDate" name="date" label="תאריך:"></signature-field>
+        </div> 
+
+        <div class="signature-section">
+            <label id="signatureLabel" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">חתימת המקבל</label>
+            <canvas id="canvas" width="400" height="200" style="border: 1px solid #ccc; background: #fff; max-width: 100%; box-sizing: border-box;"></canvas>
+        </div>
+        <br>
+
+        <button id="clearBtn">ניקוי</button>
+        <button id="approveBtn">אישור חתימה</button>
+    </div>
+
+    <script>
+        class SignatureField extends HTMLElement {
+            constructor() {
+                super();
+                const labelText = this.getAttribute('label') || '';
+                const inputId = this.getAttribute('id') || '';
+                const inputName = this.getAttribute('name') || '';
+
+                this.removeAttribute('id');
+
+                this.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap; width: 100%;">
+                        <strong style="flex-shrink: 0; white-space: nowrap;">${labelText}</strong>
+                        <input type="text" id="${inputId}" name="${inputName}" style="flex-grow: 1; min-width: 0; padding: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                `;
+            }
+
+            get label() {
+                return this.querySelector('strong').innerText;
+            }
+
+            get value() {
+                return this.querySelector('input').value.trim();
+            }
+
+            set value(val) {
+                this.querySelector('input').value = val;
+            }
+        }
+        customElements.define('signature-field', SignatureField);
+
+        const params = new URLSearchParams(window.location.search);
+
+        fetch('content.json')
+            .then(r => r.json())
+            .then(json => {
+                if(json.logo) {
+                    const logoImg = document.getElementById('logo');
+                    logoImg.src = json.logo;
+                    logoImg.style.display = 'block';
+                }
+                
+                if(json.description) {
+                    fetch(json.description) 
+                        .then(res => res.text()) 
+                        .then(textContent => {
+                            document.getElementById('description').innerText = textContent; 
+                        })
+                        .catch(err => console.error("Error fetching description text:", err));
+                }
+
+                if(json.title) document.getElementById('title').innerText = json.title;
+            })
+            .catch(err => console.error("Error loading localization JSON:", err));
+
+        const today = new Date();
+        document.getElementById('displayDate').value = today.toLocaleDateString('he-IL', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+
+        const canvas = document.getElementById('canvas');
+        const pad = new SignaturePad(canvas);
+
+        document.getElementById('clearBtn').onclick = () => pad.clear();
+
+        document.getElementById('approveBtn').onclick = () => {
+            const fields = document.querySelectorAll('signature-field');
+            let dynamicRowsHtml = '';
+
+            fields.forEach(field => {
+                if (field.value !== '') {
+                    dynamicRowsHtml += `
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; font-size: 0.95rem; color: #555;">
+                            <strong style="flex-shrink: 0; white-space: nowrap;">${field.label}</strong>
+                            <span style="flex-grow: 1; padding: 4px; border-bottom: 1px dashed #ccc; text-align: left; direction: ltr;">${field.value}</span>
+                        </div>
+                    `;
+                }
+            });
+
+            const logoImg = document.getElementById('logo');
+            const logoHtml = logoImg.style.display !== 'none' ? `<img src="${logoImg.src}" style="max-width: 250px; display: block; margin: 0 auto 1rem auto;">` : '';
+            const titleText = document.getElementById('title').innerText;
+            const descText = document.getElementById('description').innerText;
+            const sigLabel = document.getElementById('signatureLabel').innerText;
+            
+            const signatureDataUrl = pad.isEmpty() ? canvas.toDataURL("image/png") : pad.toDataURL();
+
+            const pdfContainer = document.createElement('div');
+            pdfContainer.dir = "rtl";
+            pdfContainer.style.position = 'absolute';
+            pdfContainer.style.left = '-9999px';
+            pdfContainer.style.top = '-9999px';
+            pdfContainer.style.width = '600px'; 
+            pdfContainer.style.padding = '30px';
+            pdfContainer.style.background = '#fff';
+            pdfContainer.style.fontFamily = 'inherit';
+
+            pdfContainer.innerHTML = `
+                <div style="border: 1px solid #ccc; padding: 20px; border-radius: 8px; background: #fff;">
+                    ${logoHtml}
+                    <h1 style="text-align: center; margin-bottom: 1.5rem;">${titleText}</h1>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        ${dynamicRowsHtml}
+                        ${descText ? `<p style="margin-top: 1rem; font-size: 0.95rem; color: #333; line-height: 1.5;">${descText}</p>` : ''}
+                    </div>
+
+                    <div style="margin-top: 2rem; text-align: right;">
+                        <label style="display: block; font-weight: bold; margin-bottom: 0.5rem;">${sigLabel}</label>
+                        <img src="${signatureDataUrl}" style="border: 1px solid #ccc; background: #fff; width: 400px; height: 200px; display: block;">
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(pdfContainer);
+
+            html2canvas(pdfContainer, { scale: 2 }).then(capturedCanvas => {
+                const fullImage = capturedCanvas.toDataURL("image/png");
+                document.body.removeChild(pdfContainer);
+
+                const downloadLink = document.createElement('a');
+                downloadLink.href = fullImage;
+                downloadLink.download = 'signature_document.png';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+
+                if (window.opener) {
+                    window.opener.postMessage({ 
+                        type: 'SIG_DATA', 
+                        img: fullImage 
+                    }, "*");
+                    window.close();
+                }
+            }).catch(err => {
+                console.error("Error generating capture canvas:", err);
+                if(pdfContainer.parentNode) document.body.removeChild(pdfContainer);
+            });
+        };
+    </script>
+</body>
+</html>

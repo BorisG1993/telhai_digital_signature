@@ -4,8 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="signature_styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/signature_pad"></script>
+    <script>
+        // Load each library from the local lib/ folder first; fall back to the CDN if the local file is missing.
+        function loadScript(localSrc, cdnSrc) {
+            return new Promise((resolve, reject) => {
+                const tryLoad = (src, onFail) => {
+                    const s = document.createElement('script');
+                    s.src = src;
+                    s.onload = resolve;
+                    s.onerror = () => { s.remove(); onFail(); };
+                    document.head.appendChild(s);
+                };
+                tryLoad(localSrc, () => {
+                    console.warn(`Local script not found (${localSrc}), loading from CDN: ${cdnSrc}`);
+                    tryLoad(cdnSrc, () => reject(new Error(`Failed to load ${localSrc} and ${cdnSrc}`)));
+                });
+            });
+        }
+
+        const librariesReady = Promise.all([
+            loadScript('lib/html2canvas.min.js', 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'),
+            loadScript('lib/signature_pad.umd.min.js', 'https://cdn.jsdelivr.net/npm/signature_pad@5.1.4/dist/signature_pad.umd.min.js')
+        ]);
+    </script>
     <style>
         signature-field {
             display: block;
@@ -121,11 +142,19 @@
         });
 
         const canvas = document.getElementById('canvas');
-        const pad = new SignaturePad(canvas);
+        let pad;
 
-        document.getElementById('clearBtn').onclick = () => pad.clear();
+        librariesReady.then(() => {
+            pad = new SignaturePad(canvas);
+        }).catch(err => {
+            console.error("Error loading libraries:", err);
+            document.getElementById('approveBtn').disabled = true;
+        });
+
+        document.getElementById('clearBtn').onclick = () => pad && pad.clear();
 
         document.getElementById('approveBtn').onclick = () => {
+            if (!pad) return;
             const fields = document.querySelectorAll('signature-field');
             let dynamicRowsHtml = '';
 

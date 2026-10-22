@@ -210,19 +210,17 @@
                 const fullImage = capturedCanvas.toDataURL("image/png");
                 document.body.removeChild(pdfContainer);
 
-                const downloadLink = document.createElement('a');
-                downloadLink.href = fullImage;
-                downloadLink.download = 'signature_document.png';
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-
-                if (window.opener) {
-                    window.opener.postMessage({ 
-                        type: 'SIG_DATA', 
-                        img: fullImage 
-                    }, "*");
-                    window.close();
+                // Opened as a popup (e.g. from SysAid): hand the PNG back to the opener and close.
+                // Opened directly: save the PNG locally.
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({ type: 'SIG_DATA', img: fullImage }, "*"); window.close();
+                } else {
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = fullImage;
+                    downloadLink.download = 'signature_document.png';
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
                 }
             }).catch(err => {
                 console.error("Error generating capture canvas:", err);

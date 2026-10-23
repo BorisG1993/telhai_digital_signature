@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signature Popup Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f9f9fb; color: #222; }
+        .card { background: #fff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; max-width: 900px; }
+        h1 { margin-top: 0; }
+        h2 { margin: 0 0 0.5rem 0; font-size: 1.1rem; }
+        p { margin: 0.3rem 0 0.8rem 0; color: #555; }
+        button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: #fff; background: #2c7be5; }
+        button.secondary { background: #6c757d; }
+        #warning { display: none; background: #fff3cd; border: 1px solid #ffe08a; padding: 10px; border-radius: 4px; margin-bottom: 20px; max-width: 900px; }
+        #log { font-family: monospace; font-size: 0.85rem; background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; min-height: 80px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+        #result img { max-width: 100%; border: 1px solid #ccc; margin-top: 10px; display: block; }
+        .pass { color: #27ae60; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Signature Popup Test</h1>
+
+    <div id="warning">
+        This page was opened from disk (file://). Serve the project folder over HTTP instead, e.g.
+        <code>python -m http.server 8000</code> and open <code>http://localhost:8000/test_sig.html</code>.
+    </div>
+
+    <div class="card">
+        <h2>Test 1: Opened as popup (window.opener set)</h2>
+        <p>Expected: after "אישור חתימה" the popup sends the PNG here via postMessage, closes itself, and nothing is downloaded.</p>
+        <button id="openPopupBtn">Open signature popup</button>
+    </div>
+
+    <div class="card">
+        <h2>Test 2: Opened standalone (no window.opener)</h2>
+        <p>Expected: after "אישור חתימה" the page downloads <code>signature_document.png</code>, stays open, and nothing arrives here.</p>
+        <button id="openStandaloneBtn" class="secondary">Open signature page without opener</button>
+    </div>
+
+    <div class="card">
+        <h2>Log</h2>
+        <div id="log"></div>
+    </div>
+
+    <div class="card" id="result" style="display: none;">
+        <h2>Received image <span class="pass">PASS</span></h2>
+        <a id="saveLink" download="signature_from_popup.png">Save received image</a>
+        <img id="resultImg" alt="Received signature document">
+    </div>
+
+    <script>
+        const SIG_PAGE = 'index.html';
+        let popup = null;
+
+        if (location.protocol === 'file:') {
+            document.getElementById('warning').style.display = 'block';
+        }
+
+        function log(msg) {
+            const el = document.getElementById('log');
+            el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+            el.scrollTop = el.scrollHeight;
+        }
+
+        document.getElementById('openPopupBtn').onclick = () => {
+            popup = window.open(SIG_PAGE, 'sigPopup', 'width=650,height=900');
+            if (!popup) {
+                log('Popup was blocked by the browser. Allow popups for this site and try again.');
+                return;
+            }
+            log('Popup opened. Sign and press "אישור חתימה".');
+
+            const watcher = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(watcher);
+                    log('Popup closed.');
+                }
+            }, 500);
+        };
+
+        document.getElementById('openStandaloneBtn').onclick = () => {
+            // 'noopener' makes window.opener null inside the new window, same as opening the page directly.
+            window.open(SIG_PAGE, '_blank', 'noopener');
+            log('Standalone page opened (no opener). Sign and approve: it should download the PNG.');
+        };
+
+        window.addEventListener('message', e => {
+            if (e.origin !== location.origin) {
+                log(`Ignored message from unexpected origin: ${e.origin}`);
+                return;
+            }
+            if (!e.data || e.data.type !== 'SIG_DATA') return;
+
+            const fromPopup = popup && e.source === popup;
+            log(`Received SIG_DATA (${Math.round(e.data.img.length / 1024)} KB data URL)` +
+                (fromPopup ? ' from the test popup.' : ' from an unknown window.'));
+
+            document.getElementById('resultImg').src = e.data.img;
+            document.getElementById('saveLink').href = e.data.img;
+            document.getElementById('result').style.display = 'block';
+        });
+    </script>
+</body>
+</html>

@@ -12,6 +12,7 @@ A static web page for signing equipment handover forms. The signer fills in the 
 | `description.txt` | The declaration text shown on the form and included in the PNG |
 | `signature_styles.css` | Form styles |
 | `lib/` | Local copies of `html2canvas.min.js` and `signature_pad.umd.min.js` |
+| `test_sig.html` | Test page for the popup and standalone flows |
 
 ## Libraries: local first, CDN fallback
 
@@ -54,4 +55,7 @@ The page loads `content.json` and `description.txt` with `fetch`, which does not
 python -m http.server 8000
 ```
 
-Then open http://localhost:8000/index.html.
+Then open:
+
+- http://localhost:8000/index.html for the form
+- http://localhost:8000/test_sig.html for the tests. Test 1 opens the form as a popup and should receive the PNG. Test 2 opens it without an opener and should download the PNG.

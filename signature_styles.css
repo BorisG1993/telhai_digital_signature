@@ -3,8 +3,8 @@ body { font-family: 'Heebo', sans-serif; padding: 20px; background: #f9f9fb; tex
 canvas { border: 2px dashed #ccc; border-radius: 4px; background: #fff; cursor: crosshair; margin: 15px 0; }
 .info { color: #555; margin-bottom: 10px; }
 .serial-badge { font-weight: bold; color: #2c3e50; background: #ecf0f1; padding: 2px 8px; border-radius: 4px; }
-button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: filter 0.1s ease, transform 0.05s ease; }
+button:active { filter: brightness(0.85) contrast(1.1); transform: scale(0.98); }
 #approveBtn { background: #27ae60; color: white; }
-#clearBtn { background: #e74c3c; color: white; margin-right: 10px; }
-
-
+#clearBtn { background: #e74c3c; color: white; margin-left: 10px; }
+signature-field { display: block; margin-bottom: 0.8rem; }
